@@ -7,11 +7,11 @@ CHR    = game.chr
 
 all: $(TARGET)
 
-$(CHR):
+$(CHR): generate_chr.py
 	python3 generate_chr.py
 
 $(TARGET): $(SRC) $(CHR)
-	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@
+	$(CC) $(CFLAGS) $(LDFLAGS) $(SRC) -o $(TARGET)
 
 clean:
 	rm -f $(TARGET) $(CHR)
