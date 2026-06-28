@@ -1,21 +1,67 @@
-name: Build Minecraft NES ROM
+name: Build NES ROM
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-    - uses: actions/checkout@v4
-    - name: Install cc65
-      run: sudo apt-get update && sudo apt-get install -y cc65
-    - name: Generate CHR & Compile
-      run: make
-    - uses: actions/upload-artifact@v4
-      with:
-        name: minecraft-nes
-        path: minecraft.nes
-        retention-days: 14
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Build Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cc65 unzip make
+
+      - name: Find and Extract ZIP
+        run: |
+          ZIP_FILE=$(find . -maxdepth 1 -type f -name "*.zip" | head -n 1)
+
+          if [ -z "$ZIP_FILE" ]; then
+            echo "❌ No ZIP file found in repository root."
+            exit 1
+          fi
+
+          echo "📦 Found ZIP: $ZIP_FILE"
+
+          mkdir extracted
+          unzip -q "$ZIP_FILE" -d extracted
+
+      - name: Find Project Directory
+        run: |
+          PROJECT_DIR=$(find extracted -name Makefile -o -name makefile | head -n 1 | xargs dirname)
+
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "❌ No Makefile found."
+            exit 1
+          fi
+
+          echo "PROJECT_DIR=$PROJECT_DIR" >> $GITHUB_ENV
+
+      - name: Build NES ROM
+        run: |
+          cd "$PROJECT_DIR"
+          make
+
+      - name: Collect ROM Files
+        run: |
+          mkdir output
+          find extracted -type f -name "*.nes" -exec cp {} output/ \;
+
+          if [ -z "$(ls -A output 2>/dev/null)" ]; then
+            echo "❌ No .nes ROM produced."
+            exit 1
+          fi
+
+      - name: Upload NES ROM
+        uses: actions/upload-artifact@v4
+        with:
+          name: NES-ROM
+          path: output/*.nes
